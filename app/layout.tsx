@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { Analytics } from "@vercel/analytics/next";
+
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
@@ -47,6 +49,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
           <div className="oc-vignette" />
         </div>
         <div className="relative z-10">{children}</div>
+        <Analytics />
       </body>
     </html>
   );
