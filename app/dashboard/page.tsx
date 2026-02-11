@@ -60,58 +60,6 @@ export default function DashboardPage() {
     setShareEnabled(data.shareEnabled);
   };
 
-  const autoConnect = async () => {
-    setError(null);
-    setLoading(true);
-
-    try {
-      const connectResponse = await fetch("/api/connect", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          gatewayUrl: DEFAULT_GATEWAY_URL,
-        }),
-      });
-
-      if (!connectResponse.ok) {
-        const body = (await connectResponse.json()) as ApiError;
-        throw new Error(body.error ?? "Unable to reach local OpenClaw gateway");
-      }
-
-      const connectData = (await connectResponse.json()) as { anonymousToken: string };
-
-      localStorage.setItem("clawboard.token", connectData.anonymousToken);
-      localStorage.setItem("clawboard.gatewayUrl", DEFAULT_GATEWAY_URL);
-
-      const syncResponse = await fetch("/api/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          anonymousToken: connectData.anonymousToken,
-          gatewayUrl: DEFAULT_GATEWAY_URL,
-        }),
-      });
-
-      if (!syncResponse.ok) {
-        const body = (await syncResponse.json()) as ApiError;
-        throw new Error(body.error ?? "Connected but failed to sync usage");
-      }
-
-      setToken(connectData.anonymousToken);
-      await loadStats(connectData.anonymousToken);
-      setUsageRefreshKey((value) => value + 1);
-    } catch (autoError: unknown) {
-      const message = autoError instanceof Error ? autoError.message : "Unable to connect automatically";
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
     const existingToken = localStorage.getItem("clawboard.token");
     if (!existingToken) {
