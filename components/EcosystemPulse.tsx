@@ -49,6 +49,29 @@ const formatDate = (date: string): string =>
 
 const shortModelName = (value: string): string => (value.length > 44 ? `${value.slice(0, 41)}...` : value);
 
+const formatPartialDayNote = (latestDate: string | null): string | null => {
+  if (!latestDate) {
+    return null;
+  }
+
+  const start = new Date(`${latestDate}T00:00:00Z`);
+  if (Number.isNaN(start.getTime())) {
+    return null;
+  }
+
+  const end = new Date(`${latestDate}T23:59:59Z`);
+  const now = new Date();
+
+  if (now < start || now > end) {
+    return null;
+  }
+
+  const hours = Math.max(0, Math.min(23.9, (now.getTime() - start.getTime()) / 3_600_000));
+  const hoursLabel = hours < 1 ? "<1h" : hours < 10 ? `${hours.toFixed(1)}h` : `${Math.round(hours)}h`;
+
+  return `So far today: ${hoursLabel} of data.`;
+};
+
 const providerFromModel = (model: string): string => {
   const raw = model.split("/")[0] ?? "";
   return raw.toLowerCase();
@@ -222,6 +245,7 @@ export default async function EcosystemPulse() {
   const growthValue = growthRate === null ? "--" : `${growthRate >= 0 ? "+" : ""}${(growthRate * 100).toFixed(1)}%`;
   const growthCaption = prev3Days.length === 3 ? "vs prior 3d" : "vs prior 3d";
   const growthTone = growthRate !== null && growthRate < 0 ? "coral" : "cyan";
+  const partialDayNote = formatPartialDayNote(snapshot?.latestDate ?? null);
 
   return (
     <main className="oc-shell">
@@ -265,6 +289,12 @@ export default async function EcosystemPulse() {
                     <p className="mt-1 hidden text-sm text-[color:var(--text-secondary)] sm:block">
                       Color-weighted area trend over the latest 30 days.
                     </p>
+                    {partialDayNote ? (
+                      <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[color:var(--text-muted)]">
+                        <span className="inline-block size-1.5 rounded-full bg-[#19e2c5]" />
+                        {partialDayNote}
+                      </div>
+                    ) : null}
                   </div>
                   <p className="text-xs text-[color:var(--text-muted)]">
                     Peak {trendGeometry ? formatTokenMetric(trendGeometry.max) : "--"} • Low{" "}
@@ -324,6 +354,12 @@ export default async function EcosystemPulse() {
                 <p className="mt-1 text-sm text-[color:var(--text-secondary)]">
                   Model distribution for {snapshot.latestDate ? formatDate(snapshot.latestDate) : "latest available day"}.
                 </p>
+                {partialDayNote ? (
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[color:var(--text-muted)]">
+                    <span className="inline-block size-1.5 rounded-full bg-[#19e2c5]" />
+                    {partialDayNote}
+                  </div>
+                ) : null}
 
                 {latestDay ? (
                   <div className="mt-4 grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
