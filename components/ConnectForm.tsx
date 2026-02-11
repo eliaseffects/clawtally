@@ -318,9 +318,35 @@ export function ConnectForm({
             ) : null}
 
             {discoveryStatus === "missing" && !showManual ? (
-              <p className="mt-3 text-sm text-[color:var(--text-secondary)]">
-                Local connector not found. Start the connector on this machine, then refresh to connect instantly.
-              </p>
+              <div className="mt-3 space-y-3">
+                <p className="text-sm text-[color:var(--text-secondary)]">
+                  Local connector not found. Start the connector on this machine, then retry.
+                </p>
+                <button
+                  type="button"
+                  className="oc-button-secondary w-full px-5 py-3 text-base font-semibold"
+                  onClick={() => {
+                    setDiscoveryStatus("probing");
+                    setConnector(null);
+                    setError(null);
+                    detectLocalConnector()
+                      .then((found) => {
+                        if (found) {
+                          setConnector(found);
+                          setDiscoveryStatus("found");
+                          if (found.gatewayUrl) {
+                            setGatewayUrl(found.gatewayUrl);
+                          }
+                        } else {
+                          setDiscoveryStatus("missing");
+                        }
+                      })
+                      .catch(() => setDiscoveryStatus("missing"));
+                  }}
+                >
+                  Retry Detection
+                </button>
+              </div>
             ) : null}
           </div>
 
