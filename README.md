@@ -40,3 +40,5 @@ Clawtally only reads usage telemetry to render analytics. It does not execute ta
 ## License
 
 MIT. See `LICENSE`.
+
+<!-- quickdraw: closed -->
