@@ -26,7 +26,7 @@ interface DeviceSignature {
 const DEVICE_STORAGE_KEY = "clawtally.device";
 
 const CLIENT_ID = "gateway-client";
-const CLIENT_MODE = "browser";
+const CLIENT_MODE = "backend";
 const ROLE = "operator";
 const SCOPES: ReadonlyArray<string> = ["operator.read", "operator.write", "operator.admin"];
 
@@ -191,7 +191,7 @@ const buildConnectParams = async (input: GatewayConnectionInput) => {
       id: CLIENT_ID,
       displayName: "Clawtally",
       version: "0.1.0",
-      platform: "web",
+      platform: "node",
       mode: CLIENT_MODE,
       instanceId: `clawtally-web-${Date.now()}`,
     },
