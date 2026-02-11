@@ -1,173 +1,66 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
-import { ConnectForm } from "@/components/ConnectForm";
 import { SiteTopbar } from "@/components/SiteTopbar";
 import { UsageWindowDashboard } from "@/components/UsageWindowDashboard";
-import { StatsApiResponse } from "@/lib/types";
 
-interface ApiError {
-  error?: string;
-}
-
-const formatTime = (iso: string): string =>
-  new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+const DEFAULT_GATEWAY_URL = "http://127.0.0.1:18789";
+const LOCAL_GATEWAY_STORAGE_KEY = "clawtally.gateway";
 
 export default function DashboardPage() {
-  const [token, setToken] = useState<string | null>(null);
-  const [stats, setStats] = useState<StatsApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const [shareEnabled, setShareEnabled] = useState(false);
+  const [gatewayConfig, setGatewayConfig] = useState<{ gatewayUrl: string; apiKey?: string } | null>(null);
+  const [gatewayUrlInput, setGatewayUrlInput] = useState(DEFAULT_GATEWAY_URL);
+  const [gatewayTokenInput, setGatewayTokenInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [usageRefreshKey, setUsageRefreshKey] = useState(0);
 
-  const gatewayConfig = useMemo(() => {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    const gatewayUrl = localStorage.getItem("clawboard.gatewayUrl");
-    const apiKey = localStorage.getItem("clawboard.apiKey");
-
-    if (!gatewayUrl && !apiKey) {
-      return null;
-    }
-
-    return { gatewayUrl, apiKey };
-  }, [token]);
-
-  const loadStats = async (activeToken: string) => {
-    const response = await fetch(`/api/stats/${encodeURIComponent(activeToken)}`, { cache: "no-store" });
-    if (!response.ok) {
-      const body = (await response.json()) as ApiError;
-      if (response.status === 404 && body.error === "No stats synced yet") {
-        setStats(null);
-        return;
-      }
-      throw new Error(body.error ?? "Unable to load stats");
-    }
-
-    const data = (await response.json()) as StatsApiResponse;
-    setStats(data);
-    setShareEnabled(data.shareEnabled);
-  };
-
   useEffect(() => {
-    const existingToken = localStorage.getItem("clawboard.token");
-    if (!existingToken) {
+    const raw = localStorage.getItem(LOCAL_GATEWAY_STORAGE_KEY);
+    if (!raw) {
       setLoading(false);
       return;
     }
 
-    setToken(existingToken);
-    loadStats(existingToken)
-      .catch((loadError: unknown) => {
-        const message = loadError instanceof Error ? loadError.message : "Unable to load dashboard";
-        setError(message);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
+    try {
+      const parsed = JSON.parse(raw) as { gatewayUrl?: string; apiKey?: string };
+      if (parsed.gatewayUrl && parsed.apiKey) {
+        setGatewayConfig({ gatewayUrl: parsed.gatewayUrl, apiKey: parsed.apiKey });
+        setGatewayUrlInput(parsed.gatewayUrl);
+      }
+    } catch {
+      // ignore parse errors
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const sync = async () => {
-    if (!token) {
-      setError("No active local session. Connect on this page first.");
+  const connectToGateway = (event: FormEvent) => {
+    event.preventDefault();
+    const trimmedToken = gatewayTokenInput.trim();
+    if (!trimmedToken) {
+      setError("Gateway token is required to connect.");
       return;
     }
 
+    const url = gatewayUrlInput.trim() || DEFAULT_GATEWAY_URL;
+    const config = { gatewayUrl: url, apiKey: trimmedToken };
+    localStorage.setItem(LOCAL_GATEWAY_STORAGE_KEY, JSON.stringify(config));
+    setGatewayConfig(config);
     setError(null);
-    setSyncing(true);
-
-    try {
-      const response = await fetch("/api/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          anonymousToken: token,
-          ...(gatewayConfig?.gatewayUrl ? { gatewayUrl: gatewayConfig.gatewayUrl } : {}),
-          ...(gatewayConfig?.apiKey ? { apiKey: gatewayConfig.apiKey } : {}),
-        }),
-      });
-
-      if (!response.ok) {
-        const body = (await response.json()) as ApiError;
-        throw new Error(body.error ?? "Sync failed");
-      }
-
-      await loadStats(token);
-      setUsageRefreshKey((value) => value + 1);
-    } catch (syncError: unknown) {
-      const message = syncError instanceof Error ? syncError.message : "Sync failed";
-      setError(message);
-    } finally {
-      setSyncing(false);
-    }
+    setUsageRefreshKey((value) => value + 1);
   };
 
-  const toggleShare = async () => {
-    if (!token) {
-      return;
-    }
-
-    const nextShareValue = !shareEnabled;
+  const disconnectGateway = () => {
+    localStorage.removeItem(LOCAL_GATEWAY_STORAGE_KEY);
+    setGatewayConfig(null);
+    setGatewayTokenInput("");
     setError(null);
-    setSharing(true);
-    setShareEnabled(nextShareValue);
-    setStats((current) => (current ? { ...current, shareEnabled: nextShareValue } : current));
-
-    try {
-      const response = await fetch("/api/share", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          anonymousToken: token,
-          shareEnabled: nextShareValue,
-        }),
-      });
-
-      if (!response.ok) {
-        setShareEnabled(!nextShareValue);
-        setStats((current) => (current ? { ...current, shareEnabled: !nextShareValue } : current));
-        const body = (await response.json()) as ApiError;
-        setError(body.error ?? "Unable to update sharing preference");
-      }
-    } catch (shareError: unknown) {
-      setShareEnabled(!nextShareValue);
-      setStats((current) => (current ? { ...current, shareEnabled: !nextShareValue } : current));
-      const message = shareError instanceof Error ? shareError.message : "Unable to update sharing preference";
-      setError(message);
-    } finally {
-      setSharing(false);
-    }
+    setUsageRefreshKey((value) => value + 1);
   };
 
-  const resetLocalSession = () => {
-    localStorage.removeItem("clawboard.token");
-    localStorage.removeItem("clawboard.gatewayUrl");
-    localStorage.removeItem("clawboard.apiKey");
-    setToken(null);
-    setStats(null);
-    setShareEnabled(false);
-    setSharing(false);
-    setSyncing(false);
-    setError(null);
-    setLoading(false);
-  };
-
-  const noSession = !loading && !token;
+  const noSession = !loading && !gatewayConfig;
 
   return (
     <main className="oc-shell">
@@ -178,51 +71,111 @@ export default function DashboardPage() {
 
       {noSession ? (
         <section className="mt-10 flex items-center justify-center">
-          <ConnectForm
-            variant="hero"
-            className="w-full max-w-2xl"
-            redirectTo={null}
-            showManual={false}
-            autoConnect
-            onConnected={async ({ anonymousToken }) => {
-              setToken(anonymousToken);
-              setError(null);
-              setLoading(true);
-              try {
-                await loadStats(anonymousToken);
-                setUsageRefreshKey((value) => value + 1);
-              } catch (loadError: unknown) {
-                const message = loadError instanceof Error ? loadError.message : "Unable to load dashboard";
-                setError(message);
-              } finally {
-                setLoading(false);
-              }
-            }}
-          />
+          <form
+            onSubmit={connectToGateway}
+            className="w-full max-w-2xl rounded-2xl border border-white/10 bg-[linear-gradient(160deg,rgba(13,20,34,0.92)_0%,rgba(10,16,29,0.96)_100%)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
+          >
+            <p className="oc-kicker text-[color:var(--cyan-bright)]">Read-Only Connect</p>
+            <h2 className="mt-2 text-2xl font-semibold">Show my usage.</h2>
+            <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
+              Grab your gateway token from{" "}
+              <a
+                className="text-white underline decoration-white/30 underline-offset-4"
+                href="http://127.0.0.1:18789/overview"
+                target="_blank"
+                rel="noreferrer"
+              >
+                http://127.0.0.1:18789/overview
+              </a>{" "}
+              and paste it below. We store it locally in your browser only.
+            </p>
+
+            <div className="mt-5 space-y-4">
+              <div className="space-y-2">
+                <label
+                  htmlFor="gateway-token"
+                  className="block text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]"
+                >
+                  Gateway Token
+                </label>
+                <input
+                  id="gateway-token"
+                  type="password"
+                  value={gatewayTokenInput}
+                  onChange={(event) => setGatewayTokenInput(event.target.value)}
+                  placeholder="Paste your gateway token"
+                  className="oc-input"
+                  required
+                />
+              </div>
+
+              <details className="rounded-xl border border-white/10 bg-white/5 p-4">
+                <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text-secondary)]">Advanced</summary>
+                <div className="mt-3 space-y-2">
+                  <label
+                    htmlFor="gateway-url"
+                    className="block text-xs uppercase tracking-[0.18em] text-[color:var(--text-muted)]"
+                  >
+                    Gateway URL
+                  </label>
+                  <input
+                    id="gateway-url"
+                    type="text"
+                    value={gatewayUrlInput}
+                    onChange={(event) => setGatewayUrlInput(event.target.value)}
+                    placeholder={DEFAULT_GATEWAY_URL}
+                    className="oc-input"
+                  />
+                </div>
+              </details>
+
+              {error ? (
+                <p className="rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--coral-soft)] px-3 py-2 text-sm text-rose-100">
+                  {error}
+                </p>
+              ) : null}
+
+              <button type="submit" className="oc-button-primary w-full px-5 py-3 text-base font-semibold">
+                Show my usage
+              </button>
+            </div>
+
+            <details className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+              <summary className="flex cursor-pointer items-center justify-between gap-3 text-sm font-semibold text-[color:var(--text-secondary)]">
+                Safety & privacy
+                <span className="oc-pill">More info</span>
+              </summary>
+              <div className="mt-3 space-y-2 text-sm text-[color:var(--text-secondary)]">
+                <p>
+                  Clawtally is read-only. It does not send commands to your agent, does not invoke tools, and cannot execute
+                  tasks on your machine or in your OpenClaw stack.
+                </p>
+                <p>
+                  We only read aggregate usage telemetry such as tokens, cost, models, tools, cache activity, error rates,
+                  latency, and session counts to visualize usage health.
+                </p>
+                <p>
+                  No files are modified, no prompts are written, and no content is injected into your workflows. You can
+                  disconnect at any time to revoke access and clear local session tokens.
+                </p>
+              </div>
+            </details>
+          </form>
         </section>
       ) : (
         <>
-          {error ? (
-            <p className="mt-4 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--coral-soft)] px-3 py-2 text-sm text-rose-100">
-              {error}
-            </p>
-          ) : null}
+          <section className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-[color:var(--text-secondary)]">
+            <div>
+              Connected to <span className="text-white">{gatewayConfig?.gatewayUrl}</span>
+            </div>
+            <button type="button" onClick={disconnectGateway} className="oc-button-secondary px-3 py-1.5 text-xs">
+              Disconnect
+            </button>
+          </section>
 
-          <section className="mt-7">
-            {token ? (
-              <UsageWindowDashboard
-                anonymousToken={token}
-                refreshKey={usageRefreshKey}
-                sessionControls={{
-                  lastSyncedLabel: stats ? formatTime(stats.updatedAt) : "Not synced yet",
-                  syncing,
-                  shareEnabled,
-                  sharing,
-                  onSyncNow: sync,
-                  onToggleShare: toggleShare,
-                  onDisconnect: resetLocalSession,
-                }}
-              />
+          <section className="mt-5">
+            {gatewayConfig ? (
+              <UsageWindowDashboard gatewayConfig={gatewayConfig} refreshKey={usageRefreshKey} />
             ) : (
               <div className="oc-panel p-8 text-sm text-[color:var(--text-secondary)]">
                 No local session found. Connect from this page first.

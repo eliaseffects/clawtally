@@ -4,19 +4,26 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 
 import { StatsCard } from "@/components/StatsCard";
+import { fetchGatewayUsageWindowBrowser } from "@/lib/gateway/browser-client";
+import { buildUsageWindowSummary } from "@/lib/gateway/usage-window";
 import type { LeaderboardPeriod, UsageWindowSummary } from "@/lib/types";
 
 interface UsageWindowDashboardProps {
-  anonymousToken: string;
+  anonymousToken?: string;
   refreshKey?: number;
+  gatewayConfig?: {
+    gatewayUrl: string;
+    apiKey?: string;
+  };
   sessionControls?: {
     lastSyncedLabel: string;
     syncing: boolean;
     shareEnabled: boolean;
     sharing: boolean;
+    allowSharing?: boolean;
     onSyncNow: () => void;
-    onToggleShare: () => void;
-    onDisconnect: () => void;
+    onToggleShare?: () => void;
+    onDisconnect?: () => void;
   };
 }
 
@@ -33,6 +40,35 @@ const PERIOD_LABEL: Record<LeaderboardPeriod, string> = {
   "7d": "7d",
   "30d": "30d",
   all: "All",
+};
+
+const todayLocalIso = (): string => {
+  const now = new Date();
+  const yyyy = String(now.getFullYear());
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const shiftIsoDate = (isoDate: string, days: number): string => {
+  const base = new Date(`${isoDate}T00:00:00`);
+  base.setDate(base.getDate() + days);
+  return base.toISOString().slice(0, 10);
+};
+
+const datesForPeriod = (period: LeaderboardPeriod): { startDate: string; endDate: string } => {
+  const endDate = todayLocalIso();
+
+  switch (period) {
+    case "24h":
+      return { startDate: endDate, endDate };
+    case "7d":
+      return { startDate: shiftIsoDate(endDate, -6), endDate };
+    case "30d":
+      return { startDate: shiftIsoDate(endDate, -29), endDate };
+    case "all":
+      return { startDate: "1970-01-01", endDate };
+  }
 };
 
 const formatNumber = (value: number): string => Intl.NumberFormat("en-US").format(value);
@@ -456,7 +492,7 @@ const buildTrendPath = (
   return { linePath, areaPath, max, min, xStart: first.x, xEnd: last.x, yBase };
 };
 
-export function UsageWindowDashboard({ anonymousToken, refreshKey, sessionControls }: UsageWindowDashboardProps) {
+export function UsageWindowDashboard({ anonymousToken, refreshKey, sessionControls, gatewayConfig }: UsageWindowDashboardProps) {
   const [period, setPeriod] = useState<LeaderboardPeriod>("30d");
   const [summary, setSummary] = useState<UsageWindowSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -467,6 +503,22 @@ export function UsageWindowDashboard({ anonymousToken, refreshKey, sessionContro
     setError(null);
 
     try {
+      if (gatewayConfig) {
+        const { startDate, endDate } = datesForPeriod(activePeriod);
+        const { usage, cost } = await fetchGatewayUsageWindowBrowser(gatewayConfig, {
+          startDate,
+          endDate,
+          limit: 1000,
+        });
+        const localSummary = buildUsageWindowSummary(usage, cost, { startDate, endDate });
+        setSummary(localSummary);
+        return;
+      }
+
+      if (!anonymousToken) {
+        throw new Error("No local session found. Connect from this dashboard first.");
+      }
+
       const response = await fetch("/api/usage/window", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -494,7 +546,7 @@ export function UsageWindowDashboard({ anonymousToken, refreshKey, sessionContro
   useEffect(() => {
     fetchSummary(period);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anonymousToken, period, refreshKey]);
+  }, [anonymousToken, period, refreshKey, gatewayConfig?.gatewayUrl, gatewayConfig?.apiKey]);
 
   const isRefreshing = loading && summary !== null;
   const isInitialLoading = loading && summary === null;
@@ -555,30 +607,34 @@ export function UsageWindowDashboard({ anonymousToken, refreshKey, sessionContro
                     "Sync Now"
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={sessionControls.onToggleShare}
-                  disabled={sessionControls.sharing}
-                  className="oc-button-secondary px-4 py-2 text-sm"
-                >
-                  {sessionControls.sharing ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Spinner className="size-4 border-white/25 border-t-white/80" />
-                      Updating...
-                    </span>
-                  ) : sessionControls.shareEnabled ? (
-                    "Sharing Enabled"
-                  ) : (
-                    "Enable Sharing"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={sessionControls.onDisconnect}
-                  className="oc-button-secondary px-4 py-2 text-sm"
-                >
-                  Disconnect
-                </button>
+                {sessionControls.allowSharing !== false && sessionControls.onToggleShare ? (
+                  <button
+                    type="button"
+                    onClick={sessionControls.onToggleShare}
+                    disabled={sessionControls.sharing}
+                    className="oc-button-secondary px-4 py-2 text-sm"
+                  >
+                    {sessionControls.sharing ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Spinner className="size-4 border-white/25 border-t-white/80" />
+                        Updating...
+                      </span>
+                    ) : sessionControls.shareEnabled ? (
+                      "Sharing Enabled"
+                    ) : (
+                      "Enable Sharing"
+                    )}
+                  </button>
+                ) : null}
+                {sessionControls.onDisconnect ? (
+                  <button
+                    type="button"
+                    onClick={sessionControls.onDisconnect}
+                    className="oc-button-secondary px-4 py-2 text-sm"
+                  >
+                    Disconnect
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : null}
