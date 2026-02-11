@@ -1,0 +1,13 @@
+{
+  "/api/connect/route": "/api/connect",
+  "/api/sync/route": "/api/sync",
+  "/api/claim/route": "/api/claim",
+  "/_not-found/page": "/_not-found",
+  "/api/share/route": "/api/share",
+  "/api/stats/[token]/route": "/api/stats/[token]",
+  "/api/leaderboard/route": "/api/leaderboard",
+  "/dashboard/page": "/dashboard",
+  "/page": "/",
+  "/leaderboard/page": "/leaderboard",
+  "/u/[token]/page": "/u/[token]"
+}

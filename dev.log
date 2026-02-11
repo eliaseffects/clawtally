@@ -1,0 +1,13 @@
+
+> clawboard@0.1.0 dev
+> next dev --turbo
+
+   ▲ Next.js 15.5.12 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://169.254.223.43:3000
+
+ ✓ Starting...
+ ✓ Ready in 935ms
+ ○ Compiling / ...
+ ✓ Compiled / in 4.6s
+ GET / 200 in 4937ms

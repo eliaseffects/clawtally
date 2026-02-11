@@ -1,0 +1,6 @@
+{
+  "/dashboard/page": "app/dashboard/page.js",
+  "/ecosystem/page": "app/ecosystem/page.js",
+  "/leaderboard/page": "app/leaderboard/page.js",
+  "/page": "app/page.js"
+}

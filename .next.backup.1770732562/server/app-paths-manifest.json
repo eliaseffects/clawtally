@@ -1,0 +1,14 @@
+{
+  "/api/connect/route": "app/api/connect/route.js",
+  "/api/leaderboard/route": "app/api/leaderboard/route.js",
+  "/api/pair/claim/route": "app/api/pair/claim/route.js",
+  "/api/pair/register/route": "app/api/pair/register/route.js",
+  "/api/share/route": "app/api/share/route.js",
+  "/api/stats/[token]/route": "app/api/stats/[token]/route.js",
+  "/api/sync/route": "app/api/sync/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/leaderboard/page": "app/leaderboard/page.js",
+  "/page": "app/page.js",
+  "/pair/[code]/page": "app/pair/[code]/page.js",
+  "/u/[token]/page": "app/u/[token]/page.js"
+}

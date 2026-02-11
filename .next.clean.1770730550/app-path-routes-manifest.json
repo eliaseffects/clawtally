@@ -1,0 +1,16 @@
+{
+  "/api/connect/route": "/api/connect",
+  "/api/claim/route": "/api/claim",
+  "/api/leaderboard/route": "/api/leaderboard",
+  "/_not-found/page": "/_not-found",
+  "/api/share/route": "/api/share",
+  "/api/pair/claim/route": "/api/pair/claim",
+  "/api/pair/register/route": "/api/pair/register",
+  "/api/stats/[token]/route": "/api/stats/[token]",
+  "/api/sync/route": "/api/sync",
+  "/u/[token]/page": "/u/[token]",
+  "/pair/[code]/page": "/pair/[code]",
+  "/page": "/",
+  "/dashboard/page": "/dashboard",
+  "/leaderboard/page": "/leaderboard"
+}

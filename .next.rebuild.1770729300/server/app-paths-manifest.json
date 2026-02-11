@@ -1,0 +1,8 @@
+{
+  "/api/connect/route": "app/api/connect/route.js",
+  "/api/sync/route": "app/api/sync/route.js",
+  "/api/pair/register/route": "app/api/pair/register/route.js",
+  "/api/pair/claim/route": "app/api/pair/claim/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/page": "app/page.js"
+}

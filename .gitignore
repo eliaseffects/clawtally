@@ -1,0 +1,23 @@
+# dependencies
+/node_modules
+
+# next
+/.next
+/out
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env*
+!.env.example
+
+# local gateway identity
+.clawboard/
+.clawboard-connector/
+
+# misc
+.DS_Store
+.vercel
