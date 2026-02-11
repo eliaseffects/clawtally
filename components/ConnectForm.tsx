@@ -38,6 +38,7 @@ interface ConnectFormProps {
   redirectTo?: string | null;
   onConnected?: (payload: { anonymousToken: string; gatewayUrl: string }) => void;
   showManual?: boolean;
+  autoConnect?: boolean;
 }
 
 const CONNECTOR_ORIGINS = [
@@ -99,6 +100,7 @@ export function ConnectForm({
   redirectTo = "/dashboard",
   onConnected,
   showManual = true,
+  autoConnect = false,
 }: ConnectFormProps) {
   const router = useRouter();
   const [gatewayUrl, setGatewayUrl] = useState("ws://127.0.0.1:18789");
@@ -109,6 +111,7 @@ export function ConnectForm({
   const [discoveryStatus, setDiscoveryStatus] = useState<DiscoveryStatus>("probing");
   const [connector, setConnector] = useState<LocalConnector | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
+  const [autoConnectAttempted, setAutoConnectAttempted] = useState(false);
 
   const connectAndSync = async (
     credentials: { gatewayUrl: string; apiKey?: string },
@@ -192,6 +195,16 @@ export function ConnectForm({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!autoConnect || autoConnectAttempted || discoveryStatus !== "found" || !connector || loading) {
+      return;
+    }
+
+    setAutoConnectAttempted(true);
+    onConnectorConnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect, autoConnectAttempted, discoveryStatus, connector, loading]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -283,7 +296,10 @@ export function ConnectForm({
             <p className="oc-kicker">One-Click Local Connect</p>
 
             {discoveryStatus === "probing" ? (
-              <p className="mt-2 text-sm text-[color:var(--text-secondary)]">Searching for your local ClawBoard connector...</p>
+              <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
+                Searching for your local Clawtally connector...
+                {autoConnect ? " We will connect automatically when it is detected." : null}
+              </p>
             ) : null}
 
             {discoveryStatus === "found" && connector ? (
@@ -436,7 +452,10 @@ export function ConnectForm({
             <p className="oc-kicker">One-Click Local Connect</p>
 
             {discoveryStatus === "probing" ? (
-              <p className="mt-2 text-sm text-[color:var(--text-secondary)]">Searching for your local ClawBoard connector...</p>
+              <p className="mt-2 text-sm text-[color:var(--text-secondary)]">
+                Searching for your local Clawtally connector...
+                {autoConnect ? " We will connect automatically when it is detected." : null}
+              </p>
             ) : null}
 
             {discoveryStatus === "found" && connector ? (
